@@ -24,7 +24,7 @@ var (
 		ClientID:     "10b4b65c-51b0-4fa8-bcd9-374746d2ca43",
 		ClientSecret: "kDzYVsMleZ",
 		Scopes: []string{
-			"openid",
+			"read",
 		},
 		RedirectURL: fmt.Sprintf("http://localhost:%d/callback", clientPort),
 		Endpoint: oauth2.Endpoint{
