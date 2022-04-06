@@ -10,36 +10,42 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
 const authServerURL = "http://localhost:9096"
 
 var (
+	clientPort   = 9094
 	clientConfig = oauth2.Config{
 		ClientID:     "10b4b65c-51b0-4fa8-bcd9-374746d2ca43",
 		ClientSecret: "kDzYVsMleZ",
 		Scopes: []string{
-			"read",
+			"openid",
 		},
-		RedirectURL: "http://localhost:9094/callback",
+		RedirectURL: fmt.Sprintf("http://localhost:%d/callback", clientPort),
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authServerURL + "/oauth/authorize",
 			TokenURL: authServerURL + "/oauth/token",
 		},
 	}
-	clientState         = "ACbsQ"
-	clientCodeChallenge = "S256Example"
-	clientToken         *oauth2.Token
+	clientState   = randomStr(8)
+	clientToken   *oauth2.Token
+	codeVerifier  string
+	codeChallenge string
 )
 
 func main() {
 	// Authorization Code Grant Flow
 	http.HandleFunc("/code", func(w http.ResponseWriter, r *http.Request) {
 		oAuth2Client := newOAuth2Client()
+		codeVerifier = genCodeVerifier()
+		codeChallenge = genCodeChallengeS256(codeVerifier)
 		u := oAuth2Client.AuthCodeURL(clientState,
-			oauth2.SetAuthURLParam("code_challenge", genCodeChallengeS256(clientCodeChallenge)),
+			oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		)
 		http.Redirect(w, r, u, http.StatusFound)
@@ -59,7 +65,7 @@ func main() {
 			return
 		}
 		oAuth2Client := newOAuth2Client()
-		token, err := oAuth2Client.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", clientCodeChallenge))
+		token, err := oAuth2Client.Exchange(context.Background(), code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -141,8 +147,8 @@ func main() {
 	})
 
 	// Running Client
-	log.Println("Client is running at 9094 port.Please open http://localhost:9094")
-	log.Fatal(http.ListenAndServe(":9094", nil))
+	log.Println(fmt.Sprintf("Client is running at %d port.Please open http://localhost:%d/", clientPort, clientPort))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", clientPort), nil))
 }
 
 // Util functions
@@ -156,9 +162,30 @@ func newOAuth2Client() oauth2.Config {
 	}
 }
 
-func genCodeChallengeS256(s string) string {
-	s256 := sha256.Sum256([]byte(s))
-	return base64.URLEncoding.EncodeToString(s256[:])
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randomStr(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func base64Encode(data []byte) string {
+	s := base64.URLEncoding.EncodeToString(data)
+	return strings.ReplaceAll(s, "=", "")
+}
+
+func genCodeVerifier() string {
+	str := randomStr(32)
+	return base64Encode([]byte(str))
+}
+
+func genCodeChallengeS256(codeVerifier string) string {
+	s256 := sha256.Sum256([]byte(codeVerifier))
+	return base64Encode(s256[:])
 }
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {
