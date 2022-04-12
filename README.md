@@ -4,12 +4,7 @@
 
 ### How to run!
 ```bash
-cd client
-go run client.go
-```
-```bash
-cd server
-go run server.go
+docker-compose up
 ```
 
 ## OAuth 2.0 Grant Flows Explained

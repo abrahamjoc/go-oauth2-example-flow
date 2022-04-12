@@ -1,0 +1,17 @@
+---
+version: '3.3'
+services:
+
+  go-oauth2-client:
+    container_name: go-oauth2-client
+    build: ./client
+    network_mode: host
+    expose:
+      - 9094
+
+  go-oauth2-server:
+    container_name: go-oauth2-server
+    build: ./server
+    network_mode: host
+    expose:
+      - 9094
